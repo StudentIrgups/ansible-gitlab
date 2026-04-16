@@ -21,4 +21,3 @@
   
   roles:
     - gitlab-cicd
-  when: setup_cicd | default(true)    
