@@ -14,18 +14,31 @@
   shell: docker exec gitlab cat /etc/gitlab/initial_root_password | grep Password | awk '{print $2}'
   register: root_password  
 
-- name: Create token via Rails (fallback method)
-  shell: |
-    docker exec gitlab gitlab-rails runner 'user = User.find_by_username("root"); 
-    token = user.personal_access_tokens.create!(name: "ansible", scopes: ["api"], expires_at: 365.days.from_now); 
-    puts token.token'
-  register: rails_token
-  changed_when: false
-  failed_when: false
+#- name: Create token via Rails (fallback method)
+#  shell: |
+#    docker exec gitlab gitlab-rails runner 'user = User.find_by_username("root"); 
+#    token = user.personal_access_tokens.create!(name: "ansible", scopes: ["api"], expires_at: 365.days.from_now); 
+#    puts token.token'
+#  register: rails_token
+#  changed_when: false
+#  failed_when: false
 
-- name: Set token
+#- name: Set token
+#  set_fact:
+#    gitlab_token: "{{ rails_token.stdout | default('error') }}"
+
+- name: Create admin token
+  shell: |
+    docker exec gitlab gitlab-rails runner 'user = User.find_by_username("root");
+    token = user.personal_access_tokens.create!(name: "admin", scopes: ["api", "admin_mode"], expires_at: 365.days.from_now);
+      puts token.token'
+  register: admin_token
+  changed_when: false
+  failed_when: false  
+
+- name: Set admin token
   set_fact:
-    gitlab_token: "{{ rails_token.stdout | default('error') }}"
+    gitlab_token: "{{ admin_token.stdout }}"    
 
 - name: Save token to file
   copy:
@@ -95,6 +108,16 @@
 #- name: Save project ID
 #  set_fact:
 #    gitlab_project_id: "{{ project.json.id }}"
+- name: Enable GitHub import source
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/application/setting>
+    method: PUT
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
+    body:
+      import_sources: ["github"]
+    body_format: json
+    status_code: [200, 201]
 
 - name: Check if project exists
   uri:
