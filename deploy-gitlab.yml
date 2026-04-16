@@ -67,6 +67,9 @@
           nginx-ingress:
             enabled: false
           
+          certmanager-issuer:
+            email: {{ gitlab_email | default('admin@example.com') }}
+          
           gitlab:
             webservice:
               replicas: 1

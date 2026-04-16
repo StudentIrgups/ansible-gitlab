@@ -35,3 +35,5 @@ gitlab_backup_schedule: "0 2 * * *"
 # GitLab Runner
 gitlab_install_runner: true
 gitlab_runner_tags: "kubernetes,docker"
+
+gitlab_email: "admin@example.com"
