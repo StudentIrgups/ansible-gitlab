@@ -148,18 +148,12 @@
     body:
       name: "web"
       active: true
-      events:
-        - pull_request
-        - pull_request_review
-        - push
-        - issue_comment
+      events: ["push", "release"]
       config:
         url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/trigger/pipeline?token={{ trigger.json.token }}&ref=main"
         content_type: "json"        
         insecure_ssl: "1"
     body_format: json
-  register: webhook_result
-  ignore_errors: yes     
 
 - name: Display webhook URL
   debug:

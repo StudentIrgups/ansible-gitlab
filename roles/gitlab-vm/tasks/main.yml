@@ -2,17 +2,17 @@
 - name: Wait for apt lock
   shell: while fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do sleep 1; done
   changed_when: false
-  
-- name: Install required system packages
-  apt:
-    name:
-      - apt-transport-https
-      - ca-certificates
-      - curl
-      - gnupg
-      - lsb-release
-    state: present
-    update_cache: yes
+
+#- name: Install required system packages
+#  apt:
+#    name:
+#      - apt-transport-https
+#      - ca-certificates
+#      - curl
+#      - gnupg
+#      - lsb-release
+#    state: present
+#    update_cache: yes
 
 - name: Install Docker
   shell: curl -fsSL https://get.docker.com | sh
