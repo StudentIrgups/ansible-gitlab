@@ -110,7 +110,7 @@
 #    gitlab_project_id: "{{ project.json.id }}"
 - name: Enable GitHub import source
   uri:
-    url: "http://{{ ansible_default_ipv4.address }}/api/v4/application/setting>
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/application/settings"
     method: PUT
     headers:
       PRIVATE-TOKEN: "{{ gitlab_token }}"
