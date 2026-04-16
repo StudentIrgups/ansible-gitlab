@@ -1,10 +1,41 @@
+# roles/gitlab-cicd/tasks/enable-import.yml
 ---
+- name: Wait for GitLab to be fully ready
+  wait_for:
+    port: 80
+    timeout: 300
+
+- name: Check if GitLab is initialized
+  shell: docker exec gitlab test -f /opt/gitlab/etc/gitlab-rails-rc
+  register: gitlab_ready
+  ignore_errors: yes
+  changed_when: false
+
+- name: Reconfigure GitLab if needed
+  shell: docker exec gitlab gitlab-ctl reconfigure
+  when: gitlab_ready.rc != 0
+
+- name: Wait after reconfigure
+  wait_for:
+    port: 80
+    timeout: 120
+  when: gitlab_ready.rc != 0
+
 - name: Enable import sources in GitLab
   shell: |
     docker exec gitlab gitlab-rails runner "
-      settings = ApplicationSetting.last || ApplicationSetting.new
-      settings.import_sources = ['github']
-      settings.save!
+      begin
+        settings = ApplicationSetting.last || ApplicationSetting.new
+        settings.import_sources = ['github', 'git', 'bitbucket', 'gitlab']
+        settings.save!
+        puts 'Import sources enabled'
+      rescue => e
+        puts 'Error: ' + e.message
+        exit 1
+      end
     "
   register: import_result
-  changed_when: "'already' not in import_result.stderr"
+  changed_when: "'Import sources enabled' in import_result.stdout"
+  failed_when: 
+    - import_result.rc != 0
+    - "'Error' in import_result.stdout"
