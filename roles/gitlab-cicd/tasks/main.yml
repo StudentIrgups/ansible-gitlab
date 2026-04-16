@@ -27,6 +27,13 @@
   set_fact:
     gitlab_token: "{{ rails_token.stdout_lines[0] | default('') }}"
 
+- name: Save token to file
+  copy:
+    content: "{{ gitlab_token }}"
+    dest: "/tmp/gitlab_api_token.txt"
+    mode: '0600'
+  when: gitlab_token != ''
+
 - name: Display token for manual setup if auto failed
   debug:
     msg: |
