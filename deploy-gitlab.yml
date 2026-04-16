@@ -63,12 +63,11 @@
               https: false
             ingress:
               enabled: false
+            certManager:
+              install: false
           
           nginx-ingress:
             enabled: false
-          
-          certmanager:
-            install: false
           
           gitlab:
             webservice:
@@ -134,6 +133,9 @@
           
           grafana:
             enabled: false
+          
+          certmanager:
+            install: false
         dest: /tmp/gitlab-values.yaml
     
     - name: Install GitLab via Helm
