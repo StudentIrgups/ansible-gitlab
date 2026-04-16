@@ -1,0 +1,30 @@
+# Ansible
+*.retry
+*.log
+ansible-playbook-*.log
+
+# Vault
+.vault_pass
+vault.yml
+*_vault.yml
+
+# Secrets
+secrets.yml
+*.key
+*.pem
+credentials.yml
+
+# Terraform generated
+inventory/*/terraform_vars.yml
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Temp files
+/tmp/
+*.tmp
+*.swp
+.DS_Store

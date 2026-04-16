@@ -1,0 +1,27 @@
+---
+- name: Check kubectl availability
+  command: kubectl version --client --short
+  register: kubectl_check
+  failed_when: kubectl_check.rc != 0
+
+- name: Check helm availability
+  command: helm version --short
+  register: helm_check
+  failed_when: helm_check.rc != 0
+
+- name: Check cluster connectivity
+  command: kubectl cluster-info
+  register: cluster_check
+  failed_when: cluster_check.rc != 0
+
+- name: Check if namespace exists
+  command: kubectl get namespace {{ gitlab_namespace }}
+  register: ns_check
+  failed_when: false
+  changed_when: false
+
+- name: Debug cluster info
+  debug:
+    msg: |
+      Kubernetes cluster: {{ cluster_check.stdout_lines[0] }}
+      Namespace exists: {{ ns_check.rc == 0 }}

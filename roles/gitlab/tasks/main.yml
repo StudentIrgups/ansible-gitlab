@@ -1,0 +1,22 @@
+---
+- name: Include variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_os_family }}.yml"
+    - main.yml
+
+- name: Run pre-installation checks
+  include_tasks: pre-check.yml
+
+- name: Install GitLab
+  include_tasks: install.yml
+
+- name: Configure GitLab
+  include_tasks: configure.yml
+
+- name: Setup GitLab Runner
+  include_tasks: runner.yml
+  when: gitlab_install_runner | default(true)
+
+- name: Run post-installation tasks
+  include_tasks: post-install.yml

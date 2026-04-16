@@ -1,0 +1,62 @@
+---
+- name: Create namespace
+  kubernetes.core.k8s:
+    name: "{{ gitlab_namespace }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: Add GitLab Helm repository
+  kubernetes.core.helm_repository:
+    name: gitlab
+    repo_url: "https://charts.gitlab.io"
+
+- name: Update Helm repositories
+  command: helm repo update
+  changed_when: false
+
+- name: Create GitLab secrets
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: gitlab-secrets
+        namespace: "{{ gitlab_namespace }}"
+      type: Opaque
+      stringData:
+        initial_root_password: "{{ gitlab_root_password }}"
+        runner-registration-token: "{{ gitlab_runner_token }}"
+
+- name: Create StorageClass
+  template:
+    src: storage-class.yaml.j2
+    dest: /tmp/gitlab-storage-class.yaml
+
+- name: Apply StorageClass
+  command: kubectl apply -f /tmp/gitlab-storage-class.yaml
+  changed_when: false
+
+- name: Generate GitLab values
+  template:
+    src: gitlab-values.yaml.j2
+    dest: /tmp/gitlab-values.yaml
+
+- name: Install GitLab via Helm
+  kubernetes.core.helm:
+    name: gitlab
+    chart_ref: gitlab/gitlab
+    chart_version: "{{ gitlab_chart_version }}"
+    release_namespace: "{{ gitlab_namespace }}"
+    values_files:
+      - /tmp/gitlab-values.yaml
+    wait: true
+    timeout: "30m"
+
+- name: Wait for GitLab webservice
+  command: >
+    kubectl wait --for=condition=ready pod 
+    -l app=webservice,release=gitlab 
+    -n {{ gitlab_namespace }} 
+    --timeout=600s

@@ -1,0 +1,28 @@
+---
+- name: Get worker node IP
+  shell: |
+    kubectl get nodes -o wide --selector='!node-role.kubernetes.io/control-plane' \
+      -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}'
+  register: worker_ip
+
+- name: Create NodePort service
+  template:
+    src: gitlab-service.yaml.j2
+    dest: /tmp/gitlab-service.yaml
+
+- name: Apply NodePort service
+  command: kubectl apply -f /tmp/gitlab-service.yaml
+  changed_when: false
+
+- name: Configure nginx on bastion
+  template:
+    src: nginx-gitlab.conf.j2
+    dest: /etc/nginx/sites-available/gitlab
+  notify: reload nginx
+
+- name: Enable nginx site
+  file:
+    src: /etc/nginx/sites-available/gitlab
+    dest: /etc/nginx/sites-enabled/gitlab
+    state: link
+  notify: reload nginx
