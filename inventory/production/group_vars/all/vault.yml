@@ -1,7 +1,6 @@
 ---
 # gitlab_root_password: ""  # Не используется, берётся из контейнера
 
----
 # GitLab API
 gitlab_api_token: "glpat-xxxxx"
 
