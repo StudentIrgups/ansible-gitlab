@@ -1,0 +1,38 @@
+# templates/gitlab.rb.j2
+external_url 'http://{{ gitlab_hostname }}'
+registry_external_url 'http://{{ gitlab_hostname }}:5050'
+
+# Оптимизация производительности
+nginx['worker_processes'] = 2
+nginx['worker_connections'] = 1024
+
+puma['worker_processes'] = 2
+puma['min_threads'] = 1
+puma['max_threads'] = 4
+
+sidekiq['max_concurrency'] = 10
+sidekiq['min_concurrency'] = 2
+
+# База данных
+postgresql['shared_buffers'] = "256MB"
+postgresql['max_connections'] = 50
+postgresql['work_mem'] = "8MB"
+
+# Redis
+redis['maxmemory'] = "256mb"
+redis['maxmemory_policy'] = "allkeys-lru"
+
+# Отключаем ненужные сервисы
+prometheus_monitoring['enable'] = false
+grafana['enable'] = false
+gitlab_kas['enable'] = false
+gitlab_pages['enable'] = false
+alertmanager['enable'] = false
+node_exporter['enable'] = false
+postgres_exporter['enable'] = false
+redis_exporter['enable'] = false
+
+# Логирование
+logging['logrotate_frequency'] = "daily"
+logging['logrotate_size'] = "50M"
+logging['logrotate_keep'] = 7

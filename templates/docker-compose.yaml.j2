@@ -1,0 +1,49 @@
+# templates/docker-compose.yml.j2
+version: '3.8'
+
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: gitlab
+    restart: always
+    hostname: {{ gitlab_hostname }}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "2222:22"
+      - "5050:5050"  # Container Registry
+    volumes:
+      - /opt/gitlab/config:/etc/gitlab
+      - /opt/gitlab/logs:/var/log/gitlab
+      - /opt/gitlab/data:/var/opt/gitlab
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://{{ gitlab_hostname }}'
+        registry_external_url 'http://{{ gitlab_hostname }}:5050'
+        
+        # Оптимизация для ВМ
+        nginx['worker_processes'] = 2
+        puma['worker_processes'] = 2
+        sidekiq['max_concurrency'] = 10
+        
+        # Отключаем ненужное
+        prometheus_monitoring['enable'] = false
+        grafana['enable'] = false
+        gitlab_kas['enable'] = false
+        gitlab_pages['enable'] = false
+        
+        # Настройки почты (опционально)
+        gitlab_rails['smtp_enable'] = false
+        
+        # Лимиты
+        postgresql['shared_buffers'] = "256MB"
+        postgresql['max_connections'] = 50
+    shm_size: '256m'
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+          cpus: '3'
+        reservations:
+          memory: 4G
+          cpus: '2'

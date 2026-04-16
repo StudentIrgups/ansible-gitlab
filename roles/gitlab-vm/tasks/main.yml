@@ -1,0 +1,119 @@
+# roles/gitlab-vm/tasks/main.yml
+---
+- name: Install required packages
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+      - python3-pip
+    state: present
+    update_cache: yes
+
+- name: Install Docker
+  apt:
+    name: docker.io
+    state: present
+
+- name: Install Docker Compose
+  get_url:
+    url: "https://github.com/docker/compose/releases/latest/download/docker-compose-{{ ansible_system }}-{{ ansible_architecture }}"
+    dest: /usr/local/bin/docker-compose
+    mode: '0755'
+
+- name: Start Docker
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Create GitLab directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/gitlab/config
+    - /opt/gitlab/logs
+    - /opt/gitlab/data
+    - /opt/gitlab/runner
+
+- name: Create docker-compose.yml for GitLab
+  template:
+    src: docker-compose.yml.j2
+    dest: /opt/gitlab/docker-compose.yml
+    mode: '0644'
+
+- name: Create GitLab configuration
+  template:
+    src: gitlab.rb.j2
+    dest: /opt/gitlab/config/gitlab.rb
+    mode: '0644'
+
+- name: Start GitLab with Docker Compose
+  docker_compose:
+    project_src: /opt/gitlab
+    state: present
+    restarted: yes
+
+- name: Wait for GitLab to be ready
+  wait_for:
+    port: 80
+    timeout: 600
+
+- name: Get initial root password
+  shell: docker exec gitlab cat /etc/gitlab/initial_root_password | grep Password | awk '{print $2}'
+  register: gitlab_password
+  changed_when: false
+
+- name: Save GitLab credentials
+  copy:
+    content: |
+      GitLab URL: http://{{ ansible_default_ipv4.address }}
+      Username: root
+      Password: {{ gitlab_password.stdout }}
+    dest: /root/gitlab-credentials.txt
+    mode: '0600'
+
+- name: Install GitLab Runner
+  block:
+    - name: Add GitLab Runner repository
+      shell: |
+        curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh" | bash
+    
+    - name: Install gitlab-runner
+      apt:
+        name: gitlab-runner
+        state: present
+    
+    - name: Get registration token
+      shell: |
+        docker exec gitlab gitlab-rails runner -e production "puts Gitlab::CurrentSettings.current_application_settings.runners_registration_token"
+      register: runner_token
+    
+    - name: Register GitLab Runner
+      shell: |
+        gitlab-runner register \
+          --non-interactive \
+          --url http://localhost \
+          --token {{ runner_token.stdout }} \
+          --executor docker \
+          --docker-image docker:24-dind \
+          --docker-privileged \
+          --docker-volumes "/var/run/docker.sock:/var/run/docker.sock" \
+          --description "gitlab-vm-runner" \
+          --tag-list "docker,production"
+    
+    - name: Add runner to docker group
+      user:
+        name: gitlab-runner
+        groups: docker
+        append: yes
+    
+    - name: Start Runner
+      systemd:
+        name: gitlab-runner
+        state: started
+        enabled: yes
