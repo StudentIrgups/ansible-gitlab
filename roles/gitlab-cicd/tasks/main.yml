@@ -128,7 +128,8 @@
 
 - name: Set project ID from import
   set_fact:
-    gitlab_project_id: "{{ import_result.json.id }}" 
+    gitlab_project_id: "{{ import_result.json.id }}"
+  when: import_result is defined and import_result.json is defined
 
 - name: Add Docker Hub variables
   uri:
