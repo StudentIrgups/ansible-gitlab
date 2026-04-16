@@ -133,8 +133,8 @@
 
 - name: Add Docker Hub variables
   uri:
-    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/variables"
-    method: POST
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/variables/{{ item.key }}"
+    method: PUT
     headers:
       PRIVATE-TOKEN: "{{ gitlab_token }}"
     body:
