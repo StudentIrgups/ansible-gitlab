@@ -10,6 +10,57 @@
   retries: 60
   delay: 10
 
+- name: Get root password
+  shell: docker exec gitlab cat /etc/gitlab/initial_root_password | grep Password | awk '{print $2}'
+  register: root_password  
+
+- name: Create access token via Rails (fallback)
+  shell: |
+    docker exec gitlab gitlab-rails runner "
+      user = User.find_by_username('root')
+      token = user.personal_access_tokens.create(
+        name: 'ansible',
+        scopes: ['api'],
+        expires_at: nil
+      )
+      puts token.token
+    "
+  register: new_token
+
+- name: Display token for manual entry
+  debug:
+    msg: |
+      ==================================================
+      🔑 GitLab API Token создан:
+      
+      {{ new_token.stdout }}
+      
+      Добавьте в vault.yml:
+      gitlab_api_token: "{{ new_token.stdout }}"
+      ==================================================
+
+- name: Check if API token is valid
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/version"
+    method: GET
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    status_code: 200
+  register: token_check
+  failed_when: false
+
+- name: Fail if token is invalid
+  fail:
+    msg: |
+      GitLab API token недействителен!
+      
+      Создайте токен вручную:
+      1. Войдите в GitLab: http://{{ ansible_default_ipv4.address }}
+      2. User Settings → Access Tokens
+      3. Scopes: api
+      4. Добавьте токен в vault.yml: gitlab_api_token: "glpat-..."
+  when: token_check.status != 200
+
 - name: Create GitLab project
   uri:
     url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects"
@@ -22,6 +73,7 @@
     body_format: json
     status_code: [200, 201]
   register: project
+  when: token_check.status == 200
 
 - name: Save project ID
   set_fact:
