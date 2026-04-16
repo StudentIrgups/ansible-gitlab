@@ -41,27 +41,12 @@
       ==================================================
   when: gitlab_token == ''
 
-- name: Set token variable
-  set_fact:
-    gitlab_api_token: "{{ token_response.json.token }}"
-- name: Display token for manual entry
-  debug:
-    msg: |
-      ==================================================
-      GitLab API Token создан:
-      
-      {{ new_token.stdout }}
-      
-      Добавьте в vault.yml:
-      gitlab_api_token: "{{ new_token.stdout }}"
-      ==================================================
-
 - name: Check if API token is valid
   uri:
     url: "http://{{ ansible_default_ipv4.address }}/api/v4/version"
     method: GET
     headers:
-      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
     status_code: 200
   register: token_check
   failed_when: false
@@ -83,7 +68,7 @@
     url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects"
     method: POST
     headers:
-      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
     body:
       name: "{{ project_name }}"
       visibility: "private"
@@ -101,7 +86,7 @@
     url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/variables"
     method: POST
     headers:
-      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
     body:
       key: "{{ item.key }}"
       value: "{{ item.value }}"
@@ -119,7 +104,7 @@
     url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/triggers"
     method: POST
     headers:
-      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
     body:
       description: "github-webhook"
     body_format: json
