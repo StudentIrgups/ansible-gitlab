@@ -38,7 +38,7 @@
   debug:
     msg: |
       ==================================================
-      ⚠️  Не удалось создать токен автоматически
+      Не удалось создать токен автоматически
       
       Создайте вручную в GitLab:
       1. http://{{ ansible_default_ipv4.address }}
@@ -137,8 +137,7 @@
     method: PUT
     headers:
       PRIVATE-TOKEN: "{{ gitlab_token }}"
-    body:
-      key: "{{ item.key }}"
+    body:      
       value: "{{ item.value }}"
       protected: true
       masked: "{{ item.masked | default(false) }}"
@@ -182,7 +181,7 @@
   debug:
     msg: |
       ==================================================
-      ✅ CI/CD настройка завершена!
+      CI/CD настройка завершена!
       
       GitLab Project ID: {{ gitlab_project_id }}
       Webhook URL: http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/trigger/pipeline?token={{ trigger.json.token }}&ref=main
