@@ -1,8 +1,69 @@
+# roles/gitlab-cicd/tasks/main.yml
 ---
-- name: Include subtasks
-  include_tasks: "{{ item }}"
+- name: Wait for GitLab to be ready
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}"
+    method: GET
+    status_code: [200, 302]
+  register: gitlab_check
+  until: gitlab_check.status in [200, 302]
+  retries: 60
+  delay: 10
+
+- name: Create GitLab project
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    body:
+      name: "{{ project_name }}"
+      visibility: "private"
+    body_format: json
+    status_code: [200, 201]
+  register: project
+
+- name: Save project ID
+  set_fact:
+    gitlab_project_id: "{{ project.json.id }}"
+
+- name: Add Docker Hub variables
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/variables"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    body:
+      key: "{{ item.key }}"
+      value: "{{ item.value }}"
+      protected: true
+      masked: "{{ item.masked | default(false) }}"
+    body_format: json
   loop:
-    - enable-import.yml
-    - create-project.yml
-    - add-variables.yml
-    - setup-webhook.yml
+    - { key: "DOCKER_HUB_USERNAME", value: "{{ dockerhub_username }}", masked: false }
+    - { key: "DOCKER_HUB_TOKEN", value: "{{ dockerhub_token }}", masked: true }
+    - { key: "KUBE_NAMESPACE", value: "{{ kube_namespace | default('production') }}", masked: false }
+  ignore_errors: yes
+
+- name: Create pipeline trigger
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/triggers"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    body:
+      description: "github-webhook"
+    body_format: json
+  register: trigger
+
+- name: Display webhook URL
+  debug:
+    msg: |
+      ==================================================
+      ✅ CI/CD настройка завершена!
+      
+      GitLab Project ID: {{ gitlab_project_id }}
+      Webhook URL: http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/trigger/pipeline?token={{ trigger.json.token }}&ref=main
+      
+      Настройте этот URL как webhook в GitHub репозитории.
+      ==================================================
