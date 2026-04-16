@@ -96,37 +96,6 @@
 #  set_fact:
 #    gitlab_project_id: "{{ project.json.id }}"
 
-- name: Add Docker Hub variables
-  uri:
-    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/variables"
-    method: POST
-    headers:
-      PRIVATE-TOKEN: "{{ gitlab_token }}"
-    body:
-      key: "{{ item.key }}"
-      value: "{{ item.value }}"
-      protected: true
-      masked: "{{ item.masked | default(false) }}"
-    body_format: json
-    status_code: [200, 201]
-  loop:
-    - { key: "DOCKER_HUB_USERNAME", value: "{{ dockerhub_username }}", masked: false }
-    - { key: "DOCKER_HUB_TOKEN", value: "{{ dockerhub_token }}", masked: true }
-    - { key: "KUBE_NAMESPACE", value: "{{ kube_namespace | default('nginx-app') }}", masked: false }
-  ignore_errors: yes
-
-- name: Create pipeline trigger
-  uri:
-    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/triggers"
-    method: POST
-    headers:
-      PRIVATE-TOKEN: "{{ gitlab_token }}"
-    body:
-      description: "github-webhook"
-    body_format: json
-    status_code: [200, 201]
-  register: trigger
-
 - name: Check if project exists
   uri:
     url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects?search={{ project_name }}"
@@ -160,6 +129,37 @@
 - name: Set project ID from import
   set_fact:
     gitlab_project_id: "{{ import_result.json.id }}" 
+
+- name: Add Docker Hub variables
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/variables"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
+    body:
+      key: "{{ item.key }}"
+      value: "{{ item.value }}"
+      protected: true
+      masked: "{{ item.masked | default(false) }}"
+    body_format: json
+    status_code: [200, 201]
+  loop:
+    - { key: "DOCKER_HUB_USERNAME", value: "{{ dockerhub_username }}", masked: false }
+    - { key: "DOCKER_HUB_TOKEN", value: "{{ dockerhub_token }}", masked: true }
+    - { key: "KUBE_NAMESPACE", value: "{{ kube_namespace | default('nginx-app') }}", masked: false }
+  ignore_errors: yes
+
+- name: Create pipeline trigger
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/triggers"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
+    body:
+      description: "github-webhook"
+    body_format: json
+    status_code: [200, 201]
+  register: trigger
 
 - name: Создать webhook для репозитория
   uri:
