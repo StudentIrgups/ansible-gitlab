@@ -1,6 +1,7 @@
 ---
 - name: Deploy GitLab to Kubernetes
-  hosts: bastion
+  hosts: localhost  
+  connection: local
   gather_facts: yes
   vars_files:
     - inventory/production/group_vars/all/vars.yml
