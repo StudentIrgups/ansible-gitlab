@@ -1,6 +1,6 @@
 ---
 - name: Deploy GitLab to Kubernetes
-  hosts: localhost  
+  hosts: localhost
   connection: local
   gather_facts: yes
   vars_files:
@@ -14,64 +14,138 @@
       failed_when: cluster_info.rc != 0
     
     - name: Create namespace for GitLab
-      kubernetes.core.k8s:
-        name: "{{ gitlab_namespace }}"
-        api_version: v1
-        kind: Namespace
-        state: present
+      command: |
+        kubectl create namespace {{ gitlab_namespace }} --dry-run=client -o yaml | kubectl apply -f -
+      register: ns_result
+      failed_when: ns_result.rc != 0
     
     - name: Add GitLab Helm repository
-      kubernetes.core.helm_repository:
-        name: gitlab
-        repo_url: "https://charts.gitlab.io"
+      command: helm repo add gitlab https://charts.gitlab.io
+      register: repo_add
+      failed_when: 
+        - repo_add.rc != 0
+        - "'already exists' not in repo_add.stderr"
     
     - name: Update Helm repositories
       command: helm repo update
-      changed_when: false
     
     - name: Create GitLab secrets
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: v1
-          kind: Secret
-          metadata:
-            name: gitlab-secrets
-            namespace: "{{ gitlab_namespace }}"
-          type: Opaque
-          stringData:
-            initial_root_password: "{{ gitlab_root_password }}"
-            runner-registration-token: "{{ gitlab_runner_token }}"
+      command: |
+        kubectl create secret generic gitlab-secrets \
+          --namespace={{ gitlab_namespace }} \
+          --from-literal=initial_root_password={{ gitlab_root_password | quote }} \
+          --from-literal=runner-registration-token={{ gitlab_runner_token | quote }} \
+          --dry-run=client -o yaml | kubectl apply -f -
+      register: secret_result
+      failed_when: secret_result.rc != 0
     
     - name: Create StorageClass for GitLab
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: storage.k8s.io/v1
-          kind: StorageClass
-          metadata:
-            name: gitlab-storage
-          provisioner: disk-csi-driver.mks.ycloud.io
-          parameters:
-            type: network-ssd
-          allowVolumeExpansion: true
-          volumeBindingMode: WaitForFirstConsumer
+      command: |
+        kubectl apply -f - << EOF
+        apiVersion: storage.k8s.io/v1
+        kind: StorageClass
+        metadata:
+          name: gitlab-storage
+        provisioner: disk-csi-driver.mks.ycloud.io
+        parameters:
+          type: network-ssd
+        allowVolumeExpansion: true
+        volumeBindingMode: WaitForFirstConsumer
+        EOF
+      register: sc_result
+      failed_when: sc_result.rc != 0
     
     - name: Generate GitLab Helm values
-      template:
-        src: roles/gitlab/templates/gitlab-values.yaml.j2
+      copy:
+        content: |
+          global:
+            hosts:
+              domain: {{ gitlab_domain }}
+              https: false
+            ingress:
+              enabled: false
+          
+          nginx-ingress:
+            enabled: false
+          
+          certmanager:
+            install: false
+          
+          gitlab:
+            webservice:
+              ingress:
+                enabled: false
+              resources:
+                requests:
+                  memory: {{ gitlab_resources.webservice.requests.memory }}
+                  cpu: {{ gitlab_resources.webservice.requests.cpu }}
+                limits:
+                  memory: {{ gitlab_resources.webservice.limits.memory }}
+                  cpu: {{ gitlab_resources.webservice.limits.cpu }}
+              replicas: 1
+            
+            gitlab-shell:
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+              replicas: 1
+            
+            sidekiq:
+              resources:
+                requests:
+                  memory: {{ gitlab_resources.sidekiq.requests.memory }}
+                  cpu: {{ gitlab_resources.sidekiq.requests.cpu }}
+                limits:
+                  memory: {{ gitlab_resources.sidekiq.limits.memory }}
+                  cpu: {{ gitlab_resources.sidekiq.limits.cpu }}
+          
+          postgresql:
+            persistence:
+              enabled: true
+              storageClass: gitlab-storage
+              size: 50Gi
+          
+          redis:
+            persistence:
+              enabled: true
+              storageClass: gitlab-storage
+              size: 20Gi
+          
+          minio:
+            persistence:
+              enabled: true
+              storageClass: gitlab-storage
+              size: 100Gi
+          
+          gitaly:
+            persistence:
+              enabled: true
+              storageClass: gitlab-storage
+              size: 100Gi
+          
+          gitlab-pages:
+            enabled: false
+          
+          prometheus:
+            install: false
+          
+          grafana:
+            enabled: false
         dest: /tmp/gitlab-values.yaml
     
     - name: Install GitLab via Helm
-      kubernetes.core.helm:
-        name: gitlab
-        chart_ref: gitlab/gitlab
-        chart_version: "{{ gitlab_chart_version }}"
-        release_namespace: "{{ gitlab_namespace }}"
-        values_files:
-          - /tmp/gitlab-values.yaml
-        wait: true
-        timeout: "30m"
+      command: |
+        helm upgrade --install gitlab gitlab/gitlab \
+          --namespace {{ gitlab_namespace }} \
+          --values /tmp/gitlab-values.yaml \
+          --timeout 30m \
+          --wait
+      register: helm_install
+      failed_when: helm_install.rc != 0
     
     - name: Wait for GitLab webservice
       command: >
@@ -81,24 +155,25 @@
         --timeout=600s
     
     - name: Create NodePort service for GitLab
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: v1
-          kind: Service
-          metadata:
-            name: gitlab-nodeport
-            namespace: "{{ gitlab_namespace }}"
-          spec:
-            type: NodePort
-            ports:
-            - port: 80
-              targetPort: 8181
-              nodePort: "{{ gitlab_nodeport }}"
-              protocol: TCP
-            selector:
-              app: webservice
-              release: gitlab
+      command: |
+        kubectl apply -f - << EOF
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: gitlab-nodeport
+          namespace: {{ gitlab_namespace }}
+        spec:
+          type: NodePort
+          ports:
+          - port: 80
+            targetPort: 8181
+            nodePort: {{ gitlab_nodeport }}
+          selector:
+            app: webservice
+            release: gitlab
+        EOF
+      register: svc_result
+      failed_when: svc_result.rc != 0
     
     - name: Get worker node IP
       shell: |
@@ -107,26 +182,21 @@
       register: worker_ip
     
     - name: Install GitLab Runner
-      kubernetes.core.helm:
-        name: gitlab-runner
-        chart_ref: gitlab/gitlab-runner
-        chart_version: "{{ gitlab_runner_chart_version }}"
-        release_namespace: "{{ gitlab_namespace }}"
-        values:
-          gitlabUrl: "http://{{ worker_ip.stdout }}:{{ gitlab_nodeport }}"
-          runnerRegistrationToken: "{{ gitlab_runner_token }}"
-          runners:
-            privileged: true
-            tags: "{{ gitlab_runner_tags }}"
-          resources:
-            requests:
-              memory: "256Mi"
-              cpu: "100m"
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
-        wait: true
+      command: |
+        helm upgrade --install gitlab-runner gitlab/gitlab-runner \
+          --namespace {{ gitlab_namespace }} \
+          --set gitlabUrl="http://{{ worker_ip.stdout }}:{{ gitlab_nodeport }}" \
+          --set runnerRegistrationToken="{{ gitlab_runner_token }}" \
+          --set runners.privileged=true \
+          --set runners.tags="{{ gitlab_runner_tags }}" \
+          --set resources.requests.memory="256Mi" \
+          --set resources.requests.cpu="100m" \
+          --set resources.limits.memory="512Mi" \
+          --set resources.limits.cpu="500m" \
+          --wait
       when: gitlab_install_runner | default(true)
+      register: runner_result
+      failed_when: runner_result.rc != 0
     
     - name: Get GitLab root password
       shell: |
