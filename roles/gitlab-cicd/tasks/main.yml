@@ -123,7 +123,7 @@
 
 - name: Get existing project ID
   set_fact:
-    gitlab_project_id: "{{ project_check.json[0].id }}"
+    gitlab_project_id: "{{ project_check.json.id }}"
   when: project_check.json | length > 0
 
 - name: Set project ID from import
