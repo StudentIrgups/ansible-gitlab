@@ -1,0 +1,56 @@
+---
+- name: Add Docker Hub username variable
+  uri:
+    url: "{{ gitlab_url }}/api/v4/projects/{{ gitlab_project_id }}/variables"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    body:
+      key: "DOCKER_HUB_USERNAME"
+      value: "{{ dockerhub_username }}"
+      protected: true
+    body_format: json
+  ignore_errors: yes
+
+- name: Add Docker Hub token variable (masked)
+  uri:
+    url: "{{ gitlab_url }}/api/v4/projects/{{ gitlab_project_id }}/variables"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    body:
+      key: "DOCKER_HUB_TOKEN"
+      value: "{{ dockerhub_token }}"
+      protected: true
+      masked: true
+    body_format: json
+  ignore_errors: yes
+
+- name: Add Kubernetes namespace variable
+  uri:
+    url: "{{ gitlab_url }}/api/v4/projects/{{ gitlab_project_id }}/variables"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    body:
+      key: "KUBE_NAMESPACE"
+      value: "{{ kube_namespace | default('production') }}"
+      protected: true
+    body_format: json
+  ignore_errors: yes
+
+- name: Add Kubeconfig variable (file type)
+  uri:
+    url: "{{ gitlab_url }}/api/v4/projects/{{ gitlab_project_id }}/variables"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    body:
+      key: "KUBECONFIG"
+      value: "{{ lookup('file', kubeconfig_path) }}"
+      protected: true
+      masked: true
+      variable_type: "file"
+    body_format: json
+  when: kubeconfig_path is defined
+  ignore_errors: yes

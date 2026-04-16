@@ -1,0 +1,10 @@
+---
+- name: Enable import sources in GitLab
+  shell: |
+    docker exec gitlab gitlab-rails runner "
+      settings = ApplicationSetting.last || ApplicationSetting.new
+      settings.import_sources = ['github']
+      settings.save!
+    "
+  register: import_result
+  changed_when: "'already' not in import_result.stderr"

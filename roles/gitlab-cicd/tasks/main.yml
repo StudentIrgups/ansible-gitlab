@@ -1,0 +1,8 @@
+---
+- name: Include subtasks
+  include_tasks: "{{ item }}"
+  loop:
+    - enable-import.yml
+    - create-project.yml
+    - add-variables.yml
+    - setup-webhook.yml

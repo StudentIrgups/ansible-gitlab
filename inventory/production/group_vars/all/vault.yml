@@ -1,2 +1,13 @@
 ---
 # gitlab_root_password: ""  # Не используется, берётся из контейнера
+
+---
+# GitLab API
+gitlab_api_token: "glpat-xxxxx"
+
+# Docker Hub
+dockerhub_username: "your-username"
+dockerhub_token: "dckr_pat_xxxxx"
+
+# GitHub
+github_token: "ghp_xxxxx"

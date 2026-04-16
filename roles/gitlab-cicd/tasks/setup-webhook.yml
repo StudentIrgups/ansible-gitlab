@@ -1,0 +1,37 @@
+---
+- name: Create pipeline trigger token
+  uri:
+    url: "{{ gitlab_url }}/api/v4/projects/{{ gitlab_project_id }}/triggers"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    body:
+      description: "github-webhook"
+    body_format: json
+  register: trigger
+
+- name: Create GitHub webhook
+  uri:
+    url: "https://api.github.com/repos/{{ github_owner }}/{{ github_repo }}/hooks"
+    method: POST
+    headers:
+      Authorization: "token {{ github_token }}"
+    body:
+      name: "web"
+      active: true
+      events: ["push", "release"]
+      config:
+        url: "{{ gitlab_url }}/api/v4/projects/{{ gitlab_project_id }}/trigger/pipeline?token={{ trigger.json.token }}&ref=main"
+        content_type: "json"
+    body_format: json
+  delegate_to: localhost
+  when: github_token is defined
+  ignore_errors: yes
+
+- name: Display webhook URL
+  debug:
+    msg: |
+      ==================================================
+      Webhook URL (для ручной настройки):
+      {{ gitlab_url }}/api/v4/projects/{{ gitlab_project_id }}/trigger/pipeline?token={{ trigger.json.token }}&ref=main
+      ==================================================

@@ -12,3 +12,13 @@
   
   roles:
     - gitlab-vm
+
+- name: Configure CI/CD automation
+  hosts: gitlab
+  vars_files:
+    - inventory/production/group_vars/all/vars.yml
+    - inventory/production/group_vars/all/vault.yml
+  
+  roles:
+    - gitlab-cicd
+  when: setup_cicd | default(true)    

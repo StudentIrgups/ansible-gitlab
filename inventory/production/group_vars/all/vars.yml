@@ -1,3 +1,20 @@
 ---
 gitlab_hostname: "gitlab.local"
 install_gitlab_runner: true
+
+---
+# GitLab
+gitlab_url: "http://192.168.2.31"
+
+# Project
+project_name: "nginx-app"
+project_visibility: "private"
+setup_cicd: true
+
+# Kubernetes
+kube_namespace: "nginx-app"
+kubeconfig_path: "~/.kube/config"
+
+# GitHub
+github_owner: "StudentIrgups"
+github_repo: "nginx_index_file"
