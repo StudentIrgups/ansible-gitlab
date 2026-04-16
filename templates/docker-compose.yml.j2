@@ -6,6 +6,8 @@ services:
     container_name: gitlab
     restart: always
     hostname: {{ gitlab_hostname | default('gitlab.local') }}
+    memory: 6G
+    memory_swap: 8G
     ports:
       - "80:80"
       - "443:443"
