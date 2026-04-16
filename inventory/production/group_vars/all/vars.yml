@@ -2,7 +2,6 @@
 gitlab_hostname: "gitlab.local"
 install_gitlab_runner: true
 
----
 # GitLab
 gitlab_url: "http://192.168.2.31"
 
