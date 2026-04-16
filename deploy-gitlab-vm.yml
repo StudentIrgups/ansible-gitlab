@@ -1,14 +1,14 @@
-# deploy-gitlab-vm.yml
 ---
 - name: Deploy GitLab on dedicated VM
   hosts: gitlab
   become: yes
   vars_files:
     - inventory/production/group_vars/all/vars.yml
-    #- inventory/production/group_vars/all/vault.yml
+    - inventory/production/group_vars/all/vault.yml
   
   vars:
     gitlab_hostname: "gitlab.local"
+    install_gitlab_runner: true
   
   roles:
-    - role: gitlab-vm
+    - gitlab-vm

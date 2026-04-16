@@ -1,7 +1,3 @@
-# inventory/production/group_vars/all/vars.yml
 ---
-gitlab_hostname: "gitlab"
-gitlab_vm_resources:
-  cpu: 4
-  memory: 6
-  disk: 30
+gitlab_hostname: "gitlab.local"
+install_gitlab_runner: true

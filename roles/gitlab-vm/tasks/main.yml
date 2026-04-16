@@ -1,4 +1,3 @@
-# roles/gitlab-vm/tasks/main.yml
 ---
 - name: Install required system packages
   apt:
@@ -8,28 +7,33 @@
       - curl
       - gnupg
       - lsb-release
-      - python3-pip
-      - python3-setuptools
     state: present
     update_cache: yes
 
 - name: Install Docker
-  apt:
-    name: docker.io
-    state: present
+  shell: curl -fsSL https://get.docker.com | sh
+  args:
+    creates: /usr/bin/docker
 
-- name: Install Docker SDK for Python
-  pip:
-    name:
-      - docker
-      - docker-compose
-    executable: pip3
+- name: Install Docker Compose plugin
+  shell: |
+    mkdir -p /usr/local/lib/docker/cli-plugins
+    curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+  args:
+    creates: /usr/local/lib/docker/cli-plugins/docker-compose
 
 - name: Start Docker
   systemd:
     name: docker
     state: started
     enabled: yes
+
+- name: Add ubuntu to docker group
+  user:
+    name: ubuntu
+    groups: docker
+    append: yes
 
 - name: Create GitLab directories
   file:
@@ -40,13 +44,6 @@
     - /opt/gitlab/config
     - /opt/gitlab/logs
     - /opt/gitlab/data
-    - /opt/gitlab/runner
-
-- name: Create docker-compose.yml for GitLab
-  template:
-    src: docker-compose.yml.j2
-    dest: /opt/gitlab/docker-compose.yml
-    mode: '0644'
 
 - name: Create GitLab configuration
   template:
@@ -54,36 +51,74 @@
     dest: /opt/gitlab/config/gitlab.rb
     mode: '0644'
 
-- name: Start GitLab with Docker Compose
-  docker_compose:
-    project_src: /opt/gitlab
-    state: present
-    restarted: yes
+- name: Create docker-compose.yml
+  template:
+    src: docker-compose.yml.j2
+    dest: /opt/gitlab/docker-compose.yml
+    mode: '0644'
 
-- name: Wait for GitLab to be ready
+- name: Stop and remove old GitLab container
+  shell: |
+    cd /opt/gitlab
+    docker compose down 2>/dev/null || true
+    docker stop gitlab 2>/dev/null || true
+    docker rm gitlab 2>/dev/null || true
+  ignore_errors: yes
+
+- name: Start GitLab with Docker Compose
+  shell: |
+    cd /opt/gitlab
+    docker compose up -d
+  register: gitlab_start
+
+- name: Wait for GitLab web port
   wait_for:
     port: 80
     timeout: 600
 
 - name: Get initial root password
-  shell: docker exec gitlab cat /etc/gitlab/initial_root_password | grep Password | awk '{print $2}'
+  shell: docker exec gitlab cat /etc/gitlab/initial_root_password 2>/dev/null | grep Password | awk '{print $2}'
   register: gitlab_password
   changed_when: false
+  failed_when: false
+
+- name: Set default password if not found
+  set_fact:
+    gitlab_password: "{{ gitlab_password.stdout | default('Password file not found. Reset with: docker exec gitlab gitlab-rake \"gitlab:password:reset[root]\"') }}"
 
 - name: Save GitLab credentials
   copy:
     content: |
-      GitLab URL: http://{{ ansible_default_ipv4.address }}
+      ================================================
+      GitLab CI/CD Server
+      ================================================
+      URL: http://{{ ansible_default_ipv4.address }}
       Username: root
-      Password: {{ gitlab_password.stdout }}
+      Password: {{ gitlab_password }}
+      ================================================
     dest: /root/gitlab-credentials.txt
     mode: '0600'
+
+- name: Display GitLab credentials
+  debug:
+    msg: |
+      ==================================================
+      ✅ GitLab успешно установлен!
+      
+      URL: http://{{ ansible_default_ipv4.address }}
+      Username: root
+      Password: {{ gitlab_password }}
+      
+      Сохраните пароль! Он находится в /root/gitlab-credentials.txt
+      ==================================================
 
 - name: Install GitLab Runner
   block:
     - name: Add GitLab Runner repository
       shell: |
         curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh" | bash
+      args:
+        creates: /etc/apt/sources.list.d/runner_gitlab-runner.list
     
     - name: Install gitlab-runner
       apt:
@@ -91,10 +126,17 @@
         state: present
         update_cache: yes
     
+    - name: Wait for GitLab API
+      wait_for:
+        port: 80
+        delay: 30
+        timeout: 300
+    
     - name: Get registration token
       shell: |
         docker exec gitlab gitlab-rails runner -e production "puts Gitlab::CurrentSettings.current_application_settings.runners_registration_token"
       register: runner_token
+      failed_when: runner_token.stdout == ""
     
     - name: Register GitLab Runner
       shell: |
@@ -105,9 +147,9 @@
           --executor docker \
           --docker-image docker:24-dind \
           --docker-privileged \
-          --docker-volumes "/var/run/docker.sock:/var/run/docker.sock" \
-          --description "gitlab-vm-runner" \
-          --tag-list "docker,production"
+          --docker-volumes "/var/run/docker.sock:/var/run/docker.sock"
+      args:
+        creates: /etc/gitlab-runner/config.toml
     
     - name: Add runner to docker group
       user:
@@ -118,5 +160,6 @@
     - name: Start Runner
       systemd:
         name: gitlab-runner
-        state: started
+        state: restarted
         enabled: yes
+  when: install_gitlab_runner | default(true)
