@@ -119,6 +119,48 @@
     status_code: [200, 201]
   register: trigger
 
+- name: Import project from GitHub
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
+    body:
+      name: "{{ project_name }}"
+      import_url: "https://github.com/{{ github_owner }}/{{ github_repo }}.git"
+      visibility: "private"
+      import_type: "github"
+      personal_access_token: "{{ github_token }}"
+    body_format: json
+    status_code: [200, 201]
+  register: import_result  
+
+- name: Set project ID from import
+  set_fact:
+    gitlab_project_id: "{{ import_result.json.id }}" 
+
+- name: Создать webhook для репозитория
+  uri:
+    url: "https://api.github.com/repos/{{ github_owner }}/{{ github_repo }}/hooks"
+    method: POST
+    headers:
+      Authorization: "token {{ github_token }}"
+    body:
+      name: "web"
+      active: true
+      events:
+        - pull_request
+        - pull_request_review
+        - push
+        - issue_comment
+      config:
+        url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/trigger/pipeline?token={{ trigger.json.token }}&ref=main"
+        content_type: "json"        
+        insecure_ssl: "1"
+    body_format: json
+  register: webhook_result
+  ignore_errors: yes     
+
 - name: Display webhook URL
   debug:
     msg: |
