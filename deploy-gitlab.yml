@@ -14,34 +14,33 @@
       failed_when: cluster_info.rc != 0
     
     - name: Create namespace for GitLab
-      command: |
+      shell: |
         kubectl create namespace {{ gitlab_namespace }} --dry-run=client -o yaml | kubectl apply -f -
       register: ns_result
       failed_when: ns_result.rc != 0
     
     - name: Add GitLab Helm repository
-      command: helm repo add gitlab https://charts.gitlab.io
+      shell: |
+        helm repo add gitlab https://charts.gitlab.io 2>/dev/null || true
       register: repo_add
-      failed_when: 
-        - repo_add.rc != 0
-        - "'already exists' not in repo_add.stderr"
+      failed_when: repo_add.rc != 0
     
     - name: Update Helm repositories
       command: helm repo update
     
     - name: Create GitLab secrets
-      command: |
+      shell: |
         kubectl create secret generic gitlab-secrets \
           --namespace={{ gitlab_namespace }} \
-          --from-literal=initial_root_password={{ gitlab_root_password | quote }} \
-          --from-literal=runner-registration-token={{ gitlab_runner_token | quote }} \
+          --from-literal=initial_root_password="{{ gitlab_root_password }}" \
+          --from-literal=runner-registration-token="{{ gitlab_runner_token }}" \
           --dry-run=client -o yaml | kubectl apply -f -
       register: secret_result
       failed_when: secret_result.rc != 0
     
     - name: Create StorageClass for GitLab
-      command: |
-        kubectl apply -f - << EOF
+      shell: |
+        cat << EOF | kubectl apply -f -
         apiVersion: storage.k8s.io/v1
         kind: StorageClass
         metadata:
@@ -138,7 +137,7 @@
         dest: /tmp/gitlab-values.yaml
     
     - name: Install GitLab via Helm
-      command: |
+      shell: |
         helm upgrade --install gitlab gitlab/gitlab \
           --namespace {{ gitlab_namespace }} \
           --values /tmp/gitlab-values.yaml \
@@ -148,15 +147,17 @@
       failed_when: helm_install.rc != 0
     
     - name: Wait for GitLab webservice
-      command: >
-        kubectl wait --for=condition=ready pod 
-        -l app=webservice,release=gitlab 
-        -n {{ gitlab_namespace }} 
-        --timeout=600s
+      shell: |
+        kubectl wait --for=condition=ready pod \
+          -l app=webservice,release=gitlab \
+          -n {{ gitlab_namespace }} \
+          --timeout=600s
+      register: wait_result
+      failed_when: wait_result.rc != 0
     
     - name: Create NodePort service for GitLab
-      command: |
-        kubectl apply -f - << EOF
+      shell: |
+        cat << EOF | kubectl apply -f -
         apiVersion: v1
         kind: Service
         metadata:
@@ -182,7 +183,7 @@
       register: worker_ip
     
     - name: Install GitLab Runner
-      command: |
+      shell: |
         helm upgrade --install gitlab-runner gitlab/gitlab-runner \
           --namespace {{ gitlab_namespace }} \
           --set gitlabUrl="http://{{ worker_ip.stdout }}:{{ gitlab_nodeport }}" \
