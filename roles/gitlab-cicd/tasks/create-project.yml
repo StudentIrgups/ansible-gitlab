@@ -1,0 +1,19 @@
+---
+- name: Create GitLab project
+  uri:
+    url: "{{ gitlab_url | default('http://' + ansible_default_ipv4.address) }}/api/v4/projects"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    body:
+      name: "{{ project_name }}"
+      visibility: "{{ project_visibility | default('private') }}"
+      initialize_with_readme: false
+    body_format: json
+    status_code: [200, 201]
+  register: project
+
+- name: Save project ID
+  set_fact:
+    gitlab_project_id: "{{ project.json.id }}"
+    gitlab_project_path: "{{ project.json.path_with_namespace }}"
