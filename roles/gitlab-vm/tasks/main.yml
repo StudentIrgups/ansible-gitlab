@@ -1,6 +1,6 @@
 # roles/gitlab-vm/tasks/main.yml
 ---
-- name: Install required packages
+- name: Install required system packages
   apt:
     name:
       - apt-transport-https
@@ -9,6 +9,7 @@
       - gnupg
       - lsb-release
       - python3-pip
+      - python3-setuptools
     state: present
     update_cache: yes
 
@@ -17,11 +18,12 @@
     name: docker.io
     state: present
 
-- name: Install Docker Compose
-  get_url:
-    url: "https://github.com/docker/compose/releases/latest/download/docker-compose-{{ ansible_system }}-{{ ansible_architecture }}"
-    dest: /usr/local/bin/docker-compose
-    mode: '0755'
+- name: Install Docker SDK for Python
+  pip:
+    name:
+      - docker
+      - docker-compose
+    executable: pip3
 
 - name: Start Docker
   systemd:
@@ -87,6 +89,7 @@
       apt:
         name: gitlab-runner
         state: present
+        update_cache: yes
     
     - name: Get registration token
       shell: |
