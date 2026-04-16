@@ -93,7 +93,7 @@
             ports:
             - port: 80
               targetPort: 8181
-              nodePort: {{ gitlab_nodeport }}
+              nodePort: "{{ gitlab_nodeport }}"
               protocol: TCP
             selector:
               app: webservice
