@@ -14,62 +14,25 @@
   shell: docker exec gitlab cat /etc/gitlab/initial_root_password | grep Password | awk '{print $2}'
   register: root_password  
 
-- name: Create token via session API (GitLab CE compatible)
-  block:
-    - name: Get authenticity token
-      uri:
-        url: "http://{{ ansible_default_ipv4.address }}/users/sign_in"
-        method: GET
-        return_content: yes
-      register: login_page
-      
-    - name: Extract CSRF token
-      set_fact:
-        csrf_token: "{{ login_page.content | regex_search('name=\"authenticity_token\" value=\"([^\"]+)\"', '\\1') | first }}"
-      
-    - name: Login and create token
-      uri:
-        url: "http://{{ ansible_default_ipv4.address }}/-/profile/personal_access_tokens"
-        method: POST
-        body:
-          authenticity_token: "{{ csrf_token }}"
-          personal_access_token:
-            name: "ansible-auto"
-            scopes: ["api"]
-          commit: "Create personal access token"
-        body_format: form-urlencoded
-        headers:
-          Cookie: "{{ login_page.cookies_string }}"
-        follow_redirects: all
-        status_code: [200, 302]
-      register: token_creation
-      
-    - name: Get created token
-      uri:
-        url: "http://{{ ansible_default_ipv4.address }}/-/profile/personal_access_tokens"
-        method: GET
-        return_content: yes
-        headers:
-          Cookie: "{{ login_page.cookies_string }}"
-      register: tokens_page
-      
-    - name: Extract token from page
-      set_fact:
-        new_token: "{{ tokens_page.content | regex_search('ansible-auto.*?token\">([^<]+)<', '\\1') | first | default('NOT_FOUND') }}"
-  rescue:
-    - set_fact:
-        new_token: "FALLBACK"
+- name: Create token via Rails (fallback method)
+  shell: |
+    docker exec gitlab gitlab-rails runner 'user = User.find_by_username("root"); 
+    token = user.personal_access_tokens.create!(name: "ansible", scopes: ["api"], expires_at: 365.days.from_now); 
+    puts token.token'
+  register: rails_token
+  changed_when: false
+  failed_when: false
 
 - name: Set token
   set_fact:
-    gitlab_token: "{{ new_token | default('') }}"
+    gitlab_token: "{{ rails_token.stdout | default('error') }}"
 
 - name: Save token to file
   copy:
-    content: "{{ new_token }}"
+    content: "{{ gitlab_token }}"
     dest: "/tmp/gitlab_api_token.txt"
     mode: '0600'
-  when: new_token != ''
+  when: gitlab_token != ''
 
 - name: Display token for manual setup if auto failed
   debug:
@@ -83,14 +46,14 @@
       3. Name: ansible, Scopes: api
       4. Токен добавьте в vault.yml
       ==================================================
-  when: new_token == ''
+  when: gitlab_token == ''
 
 - name: Check if API token is valid
   uri:
     url: "http://{{ ansible_default_ipv4.address }}/api/v4/version"
     method: GET
     headers:
-      PRIVATE-TOKEN: "{{ new_token }}"
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
     status_code: 200
   register: token_check
   failed_when: false
@@ -112,7 +75,7 @@
     url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects"
     method: POST
     headers:
-      PRIVATE-TOKEN: "{{ new_token }}"
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
     body:
       name: "{{ project_name }}"
       visibility: "private"
@@ -130,7 +93,7 @@
     url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/variables"
     method: POST
     headers:
-      PRIVATE-TOKEN: "{{ new_token }}"
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
     body:
       key: "{{ item.key }}"
       value: "{{ item.value }}"
@@ -148,7 +111,7 @@
     url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/triggers"
     method: POST
     headers:
-      PRIVATE-TOKEN: "{{ new_token }}"
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
     body:
       description: "github-webhook"
     body_format: json
