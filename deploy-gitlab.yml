@@ -63,16 +63,13 @@
               https: false
             ingress:
               enabled: false
-            certManager:
-              install: false
           
           nginx-ingress:
             enabled: false
           
           gitlab:
             webservice:
-              ingress:
-                enabled: false
+              replicas: 1
               resources:
                 requests:
                   memory: {{ gitlab_resources.webservice.requests.memory }}
@@ -80,17 +77,6 @@
                 limits:
                   memory: {{ gitlab_resources.webservice.limits.memory }}
                   cpu: {{ gitlab_resources.webservice.limits.cpu }}
-              replicas: 1
-            
-            gitlab-shell:
-              resources:
-                requests:
-                  memory: "256Mi"
-                  cpu: "100m"
-                limits:
-                  memory: "512Mi"
-                  cpu: "500m"
-              replicas: 1
             
             sidekiq:
               resources:
@@ -103,39 +89,17 @@
           
           postgresql:
             persistence:
-              enabled: true
-              storageClass: gitlab-storage
               size: 50Gi
           
           redis:
             persistence:
-              enabled: true
-              storageClass: gitlab-storage
               size: 20Gi
-          
-          minio:
-            persistence:
-              enabled: true
-              storageClass: gitlab-storage
-              size: 100Gi
-          
-          gitaly:
-            persistence:
-              enabled: true
-              storageClass: gitlab-storage
-              size: 100Gi
-          
-          gitlab-pages:
-            enabled: false
           
           prometheus:
             install: false
           
           grafana:
             enabled: false
-          
-          certmanager:
-            install: false
         dest: /tmp/gitlab-values.yaml
     
     - name: Install GitLab via Helm
