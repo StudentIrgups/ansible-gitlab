@@ -13,11 +13,6 @@
 - name: Get root password
   shell: docker exec gitlab cat /etc/gitlab/initial_root_password | grep Password | awk '{print $2}'
   register: root_password  
-  debug:
-    msg: |
-      ==================================================
-      Password: {{ gitlab_password }}
-      ==================================================
 
 - name: Create token via API with retries
   uri:
