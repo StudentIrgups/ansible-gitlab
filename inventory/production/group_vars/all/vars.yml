@@ -14,7 +14,7 @@ project_visibility: "public"
 setup_cicd: true
 
 # Kubernetes
-kube_namespace: "nginx-app"
+kube_namespace: "app"
 kubeconfig_path: "~/.kube/config"
 
 # GitHub

@@ -143,23 +143,11 @@
     - { key: "DOCKER_HUB_TOKEN", value: "{{ dockerhub_token }}", masked: true }
     - { key: "KUBE_NAMESPACE", value: "{{ kube_namespace }}", masked: false }   
     - { key: "PROJECT_NAME", value: "{{ project_name }}", masked: false }   
+    - { key: "PROJECT_NAME_DEPLOY", value: "{{ project_name_deploy }}", masked: false }   
     - { key: "CONTAINER_NAME", value: "{{ container_name }}", masked: false }   
+    - { key: "KUBECONFIG", value: "{{ lookup('file', kubeconfig_path) | string }}", masked: false }   
   ignore_errors: yes
 
-- name: Add KUBECONFIG as file variable
-  uri:
-    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/variables"
-    method: POST
-    headers:
-      PRIVATE-TOKEN: "{{ gitlab_token }}"
-    body:
-      key: "KUBECONFIG"
-      value: "{{ lookup('file', kubeconfig_path) | string | to_json }}"
-      variable_type: "file"
-      protected: true
-    body_format: json
-    status_code: [200, 201]
-    
 #- name: Add Docker Hub variables
 #  uri:
 #    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/variables/{{ item.key }}"
