@@ -212,25 +212,22 @@
     status_code: [201,200]
     body_format: json
 
-- name: Get GitHub repo public key
-  uri:
-    url: "https://api.github.com/repos/{{ github_owner }}/{{ github_repo }}/actions/secrets/public-key"
-    method: GET
-    headers:
-      Authorization: "token {{ github_token }}"
-  register: public_key    
+- name: Install gh CLI
+  get_url:
+    url: https://github.com/cli/cli/releases/download/v2.40.1/gh_2.40.1_linux_amd64.deb
+    dest: /tmp/gh.deb
 
-- name: Add GitLab token to GitHub repository secrets
-  uri:
-    url: "https://api.github.com/repos/{{ github_owner }}/{{ github_repo }}/actions/secrets/GITLAB_TOKEN"
-    method: PUT
-    headers:
-      Authorization: "token {{ github_token }}"
-    body:
-      encrypted_value: "{{ gitlab_token | b64encode }}"
-      key_id: "{{ public_key.json.key_id }}"
-    body_format: json
-    status_code: [201, 204]  
+- name: Install gh package
+  apt:
+    deb: /tmp/gh.deb
+
+- name: Authenticate gh
+  shell: |
+    echo "{{ github_token }}" | gh auth login --with-token
+
+- name: Set GitLab token as GitHub secret
+  shell: |
+    echo "{{ gitlab_token }}" | gh secret set GITLAB_TOKEN -R {{ github_owner }}/{{ github_repo }}
 
 - name: Display webhook URL
   debug:
