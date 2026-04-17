@@ -7,7 +7,8 @@ gitlab_url: "http://192.168.2.33"
 gitlab_external_url: "93.77.178.234:84"
 
 # Project
-project_name: "deploy-app"
+project_name: "nginx_index_file"
+project_name_deploy: "deploy-app"
 container_name: "app"
 project_visibility: "public"
 setup_cicd: true
