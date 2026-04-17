@@ -19,9 +19,9 @@
   become: yes
 
 - name: Wait for GitLab Rails to be fully ready
-  shell: docker exec gitlab gitlab-rails runner 'User.find_by_username("root").id'
+  shell: docker exec gitlab gitlab-rails runner 'puts Rails.application.initialized?'
   register: rails_ready
-  until: rails_ready.stdout | int > 0
+  until: rails_ready.stdout == "true"
   retries: 30
   delay: 10
   become: yes
