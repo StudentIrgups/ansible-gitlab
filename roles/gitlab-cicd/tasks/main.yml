@@ -16,6 +16,7 @@
   until: rails_check.stdout == "ready"
   retries: 30
   delay: 10  
+  become: yes
 
 - name: Get root password
   shell: docker exec gitlab cat /etc/gitlab/initial_root_password | grep Password | awk '{print $2}'

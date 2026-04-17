@@ -80,6 +80,22 @@
     port: 80
     timeout: 600
 
+- name: Wait for GitLab web interface to respond
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}"
+    status_code: [200, 302]
+  register: web_check
+  until: web_check.status in [200, 302]
+  retries: 60
+  delay: 10
+
+- name: Wait for initial root password file
+  wait_for:
+    path: /etc/gitlab/initial_root_password
+    timeout: 300
+  delegate_to: gitlab
+  become: yes    
+
 - name: Get initial root password
   shell: docker exec gitlab cat /etc/gitlab/initial_root_password 2>/dev/null | grep Password | awk '{print $2}'
   register: gitlab_password
