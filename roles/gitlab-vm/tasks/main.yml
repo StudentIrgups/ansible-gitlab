@@ -122,15 +122,15 @@
 - name: Display GitLab credentials
   debug:
     msg: |
-      - "=================================================="
-      - "GitLab успешно установлен!"
-      - ""
-      - "URL: http://{{ ansible_default_ipv4.address }}"
-      - "Username: root"
-      - "Password: {{ gitlab_password }}"
-      - ""
-      - "Сохраните пароль! Он находится в /root/gitlab-credentials.txt"
-      - "=================================================="
+      "=================================================="
+      "GitLab успешно установлен!"
+      
+      "URL: http://{{ ansible_default_ipv4.address }}"
+      "Username: root"
+      "Password: {{ gitlab_password }}"
+      ""
+      "Сохраните пароль! Он находится в /root/gitlab-credentials.txt"
+      "=================================================="
 
 - name: Install GitLab Runner
   block:
