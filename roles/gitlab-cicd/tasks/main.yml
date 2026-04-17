@@ -213,21 +213,25 @@
     body_format: json
 
 - name: Install gh CLI
-  get_url:
-    url: https://github.com/cli/cli/releases/download/v2.40.1/gh_2.40.1_linux_amd64.deb
-    dest: /tmp/gh.deb
+  block:
+    - name: Download gh
+      get_url:
+        url: https://github.com/cli/cli/releases/download/v2.40.1/gh_2.40.1_linux_amd64.deb
+        dest: /tmp/gh.deb
+      become: yes
 
-- name: Install gh package
-  apt:
-    deb: /tmp/gh.deb
+    - name: Install gh package
+      apt:
+        deb: /tmp/gh.deb
+      become: yes
 
-- name: Authenticate gh
-  shell: |
-    echo "{{ github_token }}" | gh auth login --with-token
+    - name: Authenticate gh
+      shell: |
+        echo "{{ github_token }}" | gh auth login --with-token
 
-- name: Set GitLab token as GitHub secret
-  shell: |
-    echo "{{ gitlab_token }}" | gh secret set GITLAB_TOKEN -R {{ github_owner }}/{{ github_repo }}
+    - name: Set GitLab token as GitHub secret
+      shell: |
+        echo "{{ gitlab_token }}" | gh secret set GITLAB_TOKEN -R {{ github_owner }}/{{ github_repo }}
 
 - name: Display webhook URL
   debug:
