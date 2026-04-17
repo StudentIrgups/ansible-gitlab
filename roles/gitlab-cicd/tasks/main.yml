@@ -55,15 +55,15 @@
 - name: Display token for manual setup if auto failed
   debug:
     msg: |
-      ==================================================
-      Не удалось создать токен автоматически
-      
-      Создайте вручную в GitLab:
-      1. http://{{ ansible_default_ipv4.address }}
-      2. User Settings → Access Tokens
-      3. Name: ansible, Scopes: api
-      4. Токен добавьте в vault.yml
-      ==================================================
+      - ==================================================
+      - Не удалось создать токен автоматически
+      - ""
+      - Создайте вручную в GitLab:
+      - 1. http://{{ ansible_default_ipv4.address }}
+      - 2. User Settings → Access Tokens
+      - 3. Name: ansible, Scopes: api
+      - 4. Токен добавьте в vault.yml
+      - ==================================================
   when: gitlab_token == ''
 
 - name: Check if API token is valid
@@ -79,13 +79,13 @@
 - name: Fail if token is invalid
   fail:
     msg: |
-      GitLab API token недействителен!
-      
-      Создайте токен вручную:
-      1. Войдите в GitLab: http://{{ ansible_default_ipv4.address }}
-      2. User Settings → Access Tokens
-      3. Scopes: api
-      4. Добавьте токен в vault.yml: gitlab_api_token: "glpat-..."
+      - GitLab API token недействителен!
+      - ""
+      - Создайте токен вручную:
+      - 1. Войдите в GitLab: http://{{ ansible_default_ipv4.address }}
+      - 2. User Settings → Access Tokens
+      - 3. Scopes: api
+      - 4. Добавьте токен в vault.yml: gitlab_api_token: "glpat-..."
   when: token_check.status != 200
 
 - name: Clone GitHub repo
@@ -161,11 +161,11 @@
 - name: Display webhook URL
   debug:
     msg: |
-      ==================================================
-      CI/CD настройка завершена!
-      
-      GitLab Project ID: {{ gitlab_project_id }}
-      Webhook URL: http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/trigger/pipeline?token={{ trigger.json.token }}&ref=main
-      
-      Настройте этот URL как webhook в GitHub репозитории.
-      ==================================================
+      - ==================================================
+      - CI/CD настройка завершена!
+      - "" 
+      - GitLab Project ID: {{ gitlab_project_id }}
+      - Webhook URL: http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/trigger/pipeline?token={{ trigger.json.token }}&ref=main
+      - "" 
+      - Настройте этот URL как webhook в GitHub репозитории.
+      - ==================================================

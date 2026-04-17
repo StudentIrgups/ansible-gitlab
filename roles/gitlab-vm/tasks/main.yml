@@ -122,15 +122,15 @@
 - name: Display GitLab credentials
   debug:
     msg: |
-      ==================================================
-      GitLab успешно установлен!
-      
-      URL: http://{{ ansible_default_ipv4.address }}
-      Username: root
-      Password: {{ gitlab_password }}
-      
-      Сохраните пароль! Он находится в /root/gitlab-credentials.txt
-      ==================================================
+      - "=================================================="
+      - "GitLab успешно установлен!"
+      - ""
+      - "URL: http://{{ ansible_default_ipv4.address }}"
+      - "Username: root"
+      - "Password: {{ gitlab_password }}"
+      - ""
+      - "Сохраните пароль! Он находится в /root/gitlab-credentials.txt"
+      - "=================================================="
 
 - name: Install GitLab Runner
   block:
@@ -139,6 +139,11 @@
         curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh" | bash
       args:
         creates: /etc/apt/sources.list.d/runner_gitlab-runner.list
+    
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600    
     
     - name: Install gitlab-runner
       apt:
