@@ -110,13 +110,14 @@
   set_fact:
     gitlab_project_id: "{{ project_info.json[0].id }}"
 
-- name: Add Docker Hub variables
+- name: Add CI/CD variables
   uri:
-    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/variables/{{ item.key }}"
-    method: PUT
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/variables"
+    method: POST
     headers:
       PRIVATE-TOKEN: "{{ gitlab_token }}"
-    body:      
+    body:
+      key: "{{ item.key }}"
       value: "{{ item.value }}"
       protected: true
       masked: "{{ item.masked | default(false) }}"
@@ -125,8 +126,26 @@
   loop:
     - { key: "DOCKER_HUB_USERNAME", value: "{{ dockerhub_username }}", masked: false }
     - { key: "DOCKER_HUB_TOKEN", value: "{{ dockerhub_token }}", masked: true }
-    - { key: "KUBE_NAMESPACE", value: "{{ kube_namespace | default('nginx-app') }}", masked: false }
+    - { key: "KUBE_NAMESPACE", value: "{{ kube_namespace }}", masked: false }   
   ignore_errors: yes
+
+#- name: Add Docker Hub variables
+#  uri:
+#    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/variables/{{ item.key }}"
+#    method: PUT
+#    headers:
+#      PRIVATE-TOKEN: "{{ gitlab_token }}"
+#    body:      
+#      value: "{{ item.value }}"
+#      protected: true
+#      masked: "{{ item.masked | default(false) }}"
+#    body_format: json
+#    status_code: [200, 201]
+#  loop:
+#    - { key: "DOCKER_HUB_USERNAME", value: "{{ dockerhub_username }}", masked: false }
+#    - { key: "DOCKER_HUB_TOKEN", value: "{{ dockerhub_token }}", masked: true }
+#    - { key: "KUBE_NAMESPACE", value: "{{ kube_namespace | default('nginx-app') }}", masked: false }
+#  ignore_errors: yes
 
 - name: Create pipeline trigger
   uri:
@@ -154,6 +173,7 @@
         url: "http://{{ gitlab_external_url }}/api/v4/projects/{{ gitlab_project_id }}/trigger/pipeline?token={{ trigger.json.token }}&ref=main"
         content_type: "json"        
         insecure_ssl: "1"
+    status_code: [201,200]
     body_format: json
 
 - name: Display webhook URL
