@@ -18,6 +18,14 @@
   delay: 10  
   become: yes
 
+- name: Wait for GitLab Rails to be fully ready
+  shell: docker exec gitlab gitlab-rails runner 'User.find_by_username("root").id'
+  register: rails_ready
+  until: rails_ready.stdout | int > 0
+  retries: 30
+  delay: 10
+  become: yes
+
 - name: Get root password
   shell: docker exec gitlab cat /etc/gitlab/initial_root_password | grep Password | awk '{print $2}'
   register: root_password  
