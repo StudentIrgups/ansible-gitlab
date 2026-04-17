@@ -110,6 +110,20 @@
   set_fact:
     gitlab_project_id: "{{ project_info.json[0].id }}"
 
+- name: Enable pull mirror from GitHub
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/remote_mirrors"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
+    body:
+      url: "https://{{ github_token }}@github.com/{{ github_owner }}/{{ github_repo }}.git"
+      enabled: true
+      only_protected_branches: false
+      keep_divergent_refs: true
+    body_format: json
+    status_code: [200, 201]    
+
 - name: Add CI/CD variables
   uri:
     url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/variables"
