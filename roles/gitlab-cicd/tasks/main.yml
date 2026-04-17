@@ -147,20 +147,20 @@
 #    - { key: "KUBE_NAMESPACE", value: "{{ kube_namespace | default('nginx-app') }}", masked: false }
 #  ignore_errors: yes
 
-- name: Get project runner token
+- name: Get runner registration token
   uri:
     url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}"
     method: GET
     headers:
       PRIVATE-TOKEN: "{{ gitlab_token }}"
-  register: project_info
+  register: project_data
 
-- name: Register Project Runner
+- name: Register runner with registration token
   shell: |
-    gitlab-runner register \
+    sudo gitlab-runner register \
       --non-interactive \
       --url http://localhost \
-      --token {{ project_info.json.runners_token }} \
+      --registration-token {{ project_data.json.runners_token }} \
       --executor docker \
       --docker-image docker:24-dind \
       --docker-privileged
