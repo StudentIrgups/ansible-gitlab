@@ -3,7 +3,8 @@ gitlab_hostname: "gitlab.local"
 install_gitlab_runner: true
 
 # GitLab
-gitlab_url: "http://192.168.2.35"
+gitlab_url: "http://192.168.2.6"
+gitlab_external_url: "93.77.178.234:84"
 
 # Project
 project_name: "nginx_index_file"

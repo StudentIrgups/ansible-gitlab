@@ -14,18 +14,9 @@
   shell: docker exec gitlab cat /etc/gitlab/initial_root_password | grep Password | awk '{print $2}'
   register: root_password  
 
-#- name: Create token via Rails (fallback method)
-#  shell: |
-#    docker exec gitlab gitlab-rails runner 'user = User.find_by_username("root"); 
-#    token = user.personal_access_tokens.create!(name: "ansible", scopes: ["api"], expires_at: 365.days.from_now); 
-#    puts token.token'
-#  register: rails_token
-#  changed_when: false
-#  failed_when: false
-
-#- name: Set token
-#  set_fact:
-#    gitlab_token: "{{ rails_token.stdout | default('error') }}"
+- name: Set admin password
+  set_fact:
+    gitlab_admin_password: "{{ root_password.stdout }}"      
 
 - name: Create admin token
   shell: |
@@ -83,76 +74,28 @@
       4. Добавьте токен в vault.yml: gitlab_api_token: "glpat-..."
   when: token_check.status != 200
 
-#- name: Check if project exists
-#  uri:
-#    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects?search={{ project_name }}"
-#    method: GET
-#    headers:
-#      PRIVATE-TOKEN: "{{ gitlab_token }}"
-#  register: project_check
+- name: Clone GitHub repo
+  git:
+    repo: "https://{{ github_token }}@github.com/{{ github_owner }}/{{ github_repo }}.git"
+    dest: "/tmp/{{ project_name }}"
 
-#- name: Create GitLab project
-#  uri:
-#    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects"
-#    method: POST
-#    headers:
-#      PRIVATE-TOKEN: "{{ gitlab_token }}"
-#    body:
-#      name: "{{ project_name }}"
-#      visibility: "private"
-#    body_format: json
-#    status_code: [200, 201]
-#  register: project
-#  when: project_check.json | length == 0
+- name: Push to GitLab
+  shell: |
+    cd /tmp/{{ project_name }}
+    git remote add gitlab http://root:{{ gitlab_admin_password }}@{{ ansible_default_ipv4.address }}/root/{{ project_name }}.git
+    git push gitlab --all
 
-#- name: Save project ID
-#  set_fact:
-#    gitlab_project_id: "{{ project.json.id }}"
-- name: Enable GitHub import source
-  uri:
-    url: "http://{{ ansible_default_ipv4.address }}/api/v4/application/settings"
-    method: PUT
-    headers:
-      PRIVATE-TOKEN: "{{ gitlab_token }}"
-    body:
-      import_sources: ["github"]
-    body_format: json
-    status_code: [200, 201]
-
-- name: Check if project exists
+- name: Get project ID from GitLab
   uri:
     url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects?search={{ project_name }}"
     method: GET
     headers:
       PRIVATE-TOKEN: "{{ gitlab_token }}"
-  register: project_check
+  register: project_info
 
-- name: Import project from GitHub
-  uri:
-    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects"
-    method: POST
-    headers:
-      PRIVATE-TOKEN: "{{ gitlab_token }}"
-    body:
-      name: "{{ project_name }}"
-      import_url: "https://github.com/{{ github_owner }}/{{ github_repo }}.git"
-      visibility: "private"
-      import_type: "github"
-      personal_access_token: "{{ github_token }}"
-    body_format: json
-    status_code: [200, 201]
-  register: import_result  
-  when: project_check.json | length == 0
-
-- name: Get existing project ID
+- name: Set project ID
   set_fact:
-    gitlab_project_id: "{{ project_check.json[0].id }}"
-  when: project_check.json | length > 0
-
-- name: Set project ID from import
-  set_fact:
-    gitlab_project_id: "{{ import_result.json.id }}"
-  when: import_result is defined and import_result.json is defined
+    gitlab_project_id: "{{ project_info.json[0].id }}"
 
 - name: Add Docker Hub variables
   uri:
@@ -195,7 +138,7 @@
       active: true
       events: ["push", "release"]
       config:
-        url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/trigger/pipeline?token={{ trigger.json.token }}&ref=main"
+        url: "http://{{ gitlab_external_url }}/api/v4/projects/{{ gitlab_project_id }}/trigger/pipeline?token={{ trigger.json.token }}&ref=main"
         content_type: "json"        
         insecure_ssl: "1"
     body_format: json
@@ -211,136 +154,3 @@
       
       Настройте этот URL как webhook в GitHub репозитории.
       ==================================================
-
-
----
-gitlab_hostname: "gitlab.local"
-install_gitlab_runner: true
-
-# GitLab
-gitlab_url: "http://192.168.2.35"
-gitlab_external_url: "46.21.244.152:84"
-# Project
-project_name: "nginx_index_file"
-project_visibility: "public"
-setup_cicd: true
-
-# Kubernetes
-kube_namespace: "nginx-app"
-kubeconfig_path: "~/.kube/config"
-
-# GitHub
-github_owner: "StudentIrgups"
-github_repo: "nginx_index_file"
-
-# gitlab_root_password: ""  # Не используется, берётся из контейнера
-gitlab_admin_password: "tdfsdfsdfs=xxxxxxxxxxxxxxxxxxx"
-# GitLab API
-gitlab_token: "glpat-xxxxxxxxxxxxxxxxxxt2r"
-
-# Docker Hub
-dockerhub_username: "your-username"
-dockerhub_token: "dckr_pat_xxxxx"
-
-# GitHub
-github_token: "ghp_sxxxxxxxxxxxxxxxxxxxxxxxn"
-
----
-- name: Import GitHub project to GitLab
-  hosts: gitlab
-  vars_files:
-    - inventory/production/group_vars/all/vars.yml
-    - inventory/production/group_vars/all/vault.yml
-
-  tasks:
-    - name: Debug
-      debug:
-        msg: |
-          token {{ gitlab_token }}
-          https://{{ github_token }}@github.com/{{ github_owner }}/{{ github_repo }}.git
-    - name: Enable GitHub import source
-      uri:
-        url: "http://{{ ansible_default_ipv4.address }}/api/v4/application/settings"
-        method: PUT
-        headers:
-          PRIVATE-TOKEN: "{{ gitlab_token }}"
-        body:
-          import_sources: ["github"]
-        body_format: json
-        status_code: [200, 201]
-
-#    - name: Enable import sources via Rails
-#      shell: |
-    #        docker exec gitlab gitlab-rails runner "ApplicationSetting.last.update(import_sources: ['github'])"
-
-    - name: Clone GitHub repo
-      git:
-        repo: "https://{{ github_token }}@github.com/{{ github_owner }}/{{ github_repo }}.git"
-        dest: "/tmp/{{ project_name }}"
-
-    - name: Push to GitLab
-      shell: |
-        cd /tmp/{{ project_name }}
-        git remote add gitlab http://root:{{ gitlab_admin_password }}@{{ ansible_default_ipv4.address }}/root/{{ project_name }}.git
-        git push gitlab --all
-
-
-    - name: Get project ID from GitLab
-      uri:
-        url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects?search={{ project_name }}"
-        method: GET
-        headers:
-          PRIVATE-TOKEN: "{{ gitlab_token }}"
-      register: project_info
-
-    - name: Set project ID
-      set_fact:
-        gitlab_project_id: "{{ project_info.json[0].id }}"
-
-    - name: Create pipeline trigger
-      uri:
-        url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/triggers"
-        method: POST
-        headers:
-          PRIVATE-TOKEN: "{{ gitlab_token }}"
-        body:
-          description: "github-webhook"
-        body_format: json
-        status_code: [200, 201]
-      register: trigger
-
-    - name: Создать webhook для репозитория
-      uri:
-        url: "https://api.github.com/repos/{{ github_owner }}/{{ github_repo }}/hooks"
-        method: POST
-        headers:
-          Authorization: "token {{ github_token }}"
-        body:
-          name: "web"
-          active: true
-          events: ["push", "release"]
-          config:
-            url: "http://{{ gitlab_external_url }}/api/v4/projects/{{ gitlab_project_id }}/trigger/pipeline?token={{ trigger.json.token }}&ref=main"
-            content_type: "json"        
-            insecure_ssl: "1"
-        status_code: [201,200]
-        body_format: json
-
-
-    - name: Import project from GitHub
-      uri:
-        url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects"
-        method: POST
-        headers:
-          Authorization: "token {{ github_token }}"
-        body:
-          name: "{{ project_name }}"
-          import_url: "https://{{ github_token }}@github.com/{{ github_owner }}/{{ github_repo }}.git"
-          import_type: "github"
-          visibility: "private"
-        body_format: json
-        status_code: [200, 201]
-
-
-
-

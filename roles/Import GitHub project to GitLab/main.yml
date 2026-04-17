@@ -1,0 +1,85 @@
+---
+- name: Debug
+  debug:
+    msg: |
+      token {{ gitlab_token }}
+      https://{{ github_token }}@github.com/{{ github_owner }}/{{ github_repo }}.git
+      
+- name: Enable GitHub import source
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/application/settings"
+    method: PUT
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
+    body:
+      import_sources: ["github"]
+    body_format: json
+    status_code: [200, 201]
+
+- name: Clone GitHub repo
+  git:
+    repo: "https://{{ github_token }}@github.com/{{ github_owner }}/{{ github_repo }}.git"
+    dest: "/tmp/{{ project_name }}"
+
+- name: Push to GitLab
+  shell: |
+    cd /tmp/{{ project_name }}
+    git remote add gitlab http://root:{{ gitlab_admin_password }}@{{ ansible_default_ipv4.address }}/root/{{ project_name }}.git
+    git push gitlab --all
+
+
+- name: Get project ID from GitLab
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects?search={{ project_name }}"
+    method: GET
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
+  register: project_info
+
+- name: Set project ID
+  set_fact:
+    gitlab_project_id: "{{ project_info.json[0].id }}"
+
+- name: Create pipeline trigger
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/triggers"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
+    body:
+      description: "github-webhook"
+    body_format: json
+    status_code: [200, 201]
+  register: trigger
+
+- name: Создать webhook для репозитория
+  uri:
+    url: "https://api.github.com/repos/{{ github_owner }}/{{ github_repo }}/hooks"
+    method: POST
+    headers:
+      Authorization: "token {{ github_token }}"
+    body:
+      name: "web"
+      active: true
+      events: ["push", "release"]
+      config:
+        url: "http://{{ gitlab_external_url }}/api/v4/projects/{{ gitlab_project_id }}/trigger/pipeline?token={{ trigger.json.token }}&ref=main"
+        content_type: "json"        
+        insecure_ssl: "1"
+    status_code: [201,200]
+    body_format: json
+
+
+- name: Import project from GitHub
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects"
+    method: POST
+    headers:
+      Authorization: "token {{ github_token }}"
+    body:
+      name: "{{ project_name }}"
+      import_url: "https://{{ github_token }}@github.com/{{ github_owner }}/{{ github_repo }}.git"
+      import_type: "github"
+      visibility: "private"
+    body_format: json
+    status_code: [200, 201]
