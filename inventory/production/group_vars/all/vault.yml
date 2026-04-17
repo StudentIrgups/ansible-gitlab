@@ -3,7 +3,7 @@
 gitlab_admin_password: "tdfsdfsdfs=xxxxxxxxxxxxxxxxxxx"
 
 # GitLab API
-gitlab_token: "glpat-xxxxxxxxxxxxxxxxxxt2r"
+gitlab_admin_token: "glpat-xxxxxxxxxxxxxxxxxxt2r"
 
 # Docker Hub
 dockerhub_username: "your-username"
