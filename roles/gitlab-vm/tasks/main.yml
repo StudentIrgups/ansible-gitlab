@@ -19,13 +19,13 @@
   args:
     creates: /usr/bin/docker
 
-- name: Install Docker Compose plugin
-  shell: |
-    mkdir -p /usr/local/lib/docker/cli-plugins
-    curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
-    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
-  args:
-    creates: /usr/local/lib/docker/cli-plugins/docker-compose
+#- name: Install Docker Compose plugin
+#  shell: |
+#    mkdir -p /usr/local/lib/docker/cli-plugins
+#    curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
+#    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+#  args:
+#    creates: /usr/local/lib/docker/cli-plugins/docker-compose
 
 - name: Start Docker
   systemd:
@@ -89,12 +89,12 @@
   retries: 60
   delay: 10
 
-- name: Wait for initial root password file
-  wait_for:
-    path: /etc/gitlab/initial_root_password
-    timeout: 300
-  delegate_to: gitlab
-  become: yes    
+- name: Wait for initial root password file in container
+  shell: docker exec gitlab test -f /etc/gitlab/initial_root_password
+  register: file_check
+  until: file_check.rc == 0
+  retries: 60
+  delay: 10 
 
 - name: Get initial root password
   shell: docker exec gitlab cat /etc/gitlab/initial_root_password 2>/dev/null | grep Password | awk '{print $2}'
