@@ -36,9 +36,7 @@
 
 - name: Create token via Rails (fallback method)
   shell: |
-    docker exec gitlab gitlab-rails runner 'user = User.find_by_username("root"); 
-    token = user.personal_access_tokens.create!(name: "ansible", scopes: ["api"], expires_at: 365.days.from_now); 
-    puts token.token'
+    docker exec gitlab gitlab-rails runner 'user = User.find_by_username("root"); token = user.personal_access_tokens.create!(name: "ansible", scopes: ["api"], expires_at: 365.days.from_now); puts token.token'
   register: rails_token
   changed_when: false
   failed_when: false
