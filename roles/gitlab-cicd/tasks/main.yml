@@ -147,6 +147,24 @@
 #    - { key: "KUBE_NAMESPACE", value: "{{ kube_namespace | default('nginx-app') }}", masked: false }
 #  ignore_errors: yes
 
+- name: Get project runner token
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}"
+    method: GET
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_token }}"
+  register: project_info
+
+- name: Register Project Runner
+  shell: |
+    gitlab-runner register \
+      --non-interactive \
+      --url http://localhost \
+      --token {{ project_info.json.runners_token }} \
+      --executor docker \
+      --docker-image docker:24-dind \
+      --docker-privileged
+
 - name: Create pipeline trigger
   uri:
     url: "http://{{ ansible_default_ipv4.address }}/api/v4/projects/{{ gitlab_project_id }}/triggers"
