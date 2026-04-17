@@ -135,12 +135,14 @@
       value: "{{ item.value }}"
       protected: true
       masked: "{{ item.masked | default(false) }}"
+      variable_type: "{{ item.variable_type | default('env_var') }}"
     body_format: json
     status_code: [200, 201]
   loop:
     - { key: "DOCKER_HUB_USERNAME", value: "{{ dockerhub_username }}", masked: false }
     - { key: "DOCKER_HUB_TOKEN", value: "{{ dockerhub_token }}", masked: true }
     - { key: "KUBE_NAMESPACE", value: "{{ kube_namespace }}", masked: false }   
+    - { key: "KUBECONFIG", value: "{{ lookup('file', kubeconfig_path) }}", variable_type: "file" }
   ignore_errors: yes
 
 #- name: Add Docker Hub variables
