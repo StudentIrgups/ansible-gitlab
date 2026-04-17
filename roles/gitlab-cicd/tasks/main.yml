@@ -22,12 +22,22 @@
   set_fact:
     gitlab_admin_password: "{{ root_password.stdout }}"      
 
-- name: Create token via Rails (fallback method)
+#- name: Create token via Rails (fallback method)
+# shell: |
+#    docker exec gitlab gitlab-rails runner 'user = User.find_by_username("root"); token = user.personal_access_tokens.create!(name: "ansible", scopes: ["api"], expires_at: 365.days.from_now); puts token.token'
+#  register: rails_token
+#  changed_when: false
+#  failed_when: false
+
+- name: Create token via Rails with retries
   shell: |
     docker exec gitlab gitlab-rails runner 'user = User.find_by_username("root"); token = user.personal_access_tokens.create!(name: "ansible", scopes: ["api"], expires_at: 365.days.from_now); puts token.token'
   register: rails_token
+  until: rails_token.stdout != "" and rails_token.stdout | length > 0
+  retries: 5
+  delay: 30
   changed_when: false
-  failed_when: false
+  failed_when: false  
 
 - name: Set token
   set_fact:
