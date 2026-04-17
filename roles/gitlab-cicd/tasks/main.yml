@@ -18,18 +18,18 @@
   set_fact:
     gitlab_admin_password: "{{ root_password.stdout }}"      
 
-- name: Create admin token
+- name: Create token via Rails (fallback method)
   shell: |
-    docker exec gitlab gitlab-rails runner 'user = User.find_by_username("root");
-    token = user.personal_access_tokens.create!(name: "admin", scopes: ["api", "admin_mode"], expires_at: 365.days.from_now);
-      puts token.token'
-  register: admin_token
+    docker exec gitlab gitlab-rails runner 'user = User.find_by_username("root"); 
+    token = user.personal_access_tokens.create!(name: "ansible", scopes: ["api"], expires_at: 365.days.from_now); 
+    puts token.token'
+  register: rails_token
   changed_when: false
-  failed_when: false  
+  failed_when: false
 
-- name: Set admin token
+- name: Set token
   set_fact:
-    gitlab_token: "{{ admin_token.stdout }}"    
+    gitlab_token: "{{ rails_token.stdout }}"    
 
 - name: Save token to file
   copy:
@@ -79,10 +79,11 @@
     repo: "https://{{ github_token }}@github.com/{{ github_owner }}/{{ github_repo }}.git"
     dest: "/tmp/{{ project_name }}"
 
-- name: Push to GitLab
+- name: Push to GitLab with encoded password
   shell: |
     cd /tmp/{{ project_name }}
-    git remote add gitlab http://root:{{ gitlab_admin_password }}@{{ ansible_default_ipv4.address }}/root/{{ project_name }}.git
+    ENCODED_PASS=$(python3 -c "import urllib.parse; print(urllib.parse.quote('{{ gitlab_admin_password }}', safe=''))")
+    git remote add gitlab http://root:${ENCODED_PASS}@{{ ansible_default_ipv4.address }}/root/{{ project_name }}.git
     git push gitlab --all
 
 - name: Get project ID from GitLab
