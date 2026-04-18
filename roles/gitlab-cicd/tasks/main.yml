@@ -234,6 +234,10 @@
       shell: |
         echo "{{ gitlab_token }}" | gh secret set GITLAB_TOKEN -R {{ github_owner }}/{{ github_repo }}
 
+    - name: Set BASTION_IP as GitHub secret
+      shell: |
+        echo "{{ gitlab_external_url }}" | gh secret set BASTION_IP -R {{ github_owner }}/{{ github_repo }}        
+
 - name: Display webhook URL
   debug:
     msg: |
