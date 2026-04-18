@@ -230,9 +230,17 @@
       shell: |
         echo "{{ github_token }}" | gh auth login --with-token
 
+    - name: Debug GITLAB_TOKEN
+      debug: 
+        var: gitlab_token 
+
     - name: Set GitLab token as GitHub secret
       shell: |
         echo "{{ gitlab_token }}" | gh secret set GITLAB_TOKEN -R {{ github_owner }}/{{ github_repo }}
+    
+    - name: Debug BASTION_IP
+      debug:
+        var: gitlab_external_url
 
     - name: Set BASTION_IP as GitHub secret
       shell: |
